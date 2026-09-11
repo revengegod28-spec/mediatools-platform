@@ -7,7 +7,7 @@
 const API_BASE_URL = window.API_BASE_URL || (
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:8000'
-        : 'https://api.mediatools.app'
+        : 'https://revengegod28-mediatools-api.onrender.com'
 );
 
 const API_PREFIX = '/api/v1';
