@@ -1,0 +1,188 @@
+/* ============================================
+   Quick Media Tools - Custom Styles
+   أنماط إضافية فوق Tailwind
+   ============================================ */
+
+* {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Cairo', 'Tajawal', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+}
+
+/* ============================================
+   Gradient & Backgrounds
+   ============================================ */
+.gradient-brand {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%);
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #7c3aed, #db2777);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Decorative Blobs */
+.blob {
+    position: absolute;
+    filter: blur(80px);
+    opacity: 0.4;
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+}
+
+/* ============================================
+   Tool Cards Animation
+   ============================================ */
+.tool-card {
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.4s ease;
+}
+
+.tool-card:hover {
+    transform: translateY(-8px);
+}
+
+.tool-card:hover .tool-card-inner {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #6d28d9, #4c1d95);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+::selection {
+    background-color: #7c3aed;
+    color: white;
+}
+
+/* ============================================
+   Loading Spinner
+   ============================================ */
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(124, 58, 237, 0.2);
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   Pulse Glow Effect
+   ============================================ */
+.pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(124, 58, 237, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 0 15px rgba(124, 58, 237, 0);
+    }
+}
+
+/* ============================================
+   Form Controls
+   ============================================ */
+input[type="file"]::file-selector-button {
+    background: linear-gradient(135deg, #7c3aed, #5b21b6);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: opacity 0.2s;
+}
+
+input[type="file"]::file-selector-button:hover {
+    opacity: 0.9;
+}
+
+/* ============================================
+   Drag & Drop Zone
+   ============================================ */
+.drop-zone {
+    border: 2px dashed #cbd5e1;
+    transition: all 0.3s ease;
+}
+
+.drop-zone.dragover {
+    border-color: #7c3aed;
+    background-color: rgba(124, 58, 237, 0.05);
+}
+
+/* ============================================
+   Toast Notifications
+   ============================================ */
+.toast {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-exit {
+    animation: slideOutRight 0.3s ease-out forwards;
+}
+
+@keyframes slideOutRight {
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* ============================================
+   Print
+   ============================================ */
+@media print {
+    nav, footer, .no-print {
+        display: none !important;
+    }
+}

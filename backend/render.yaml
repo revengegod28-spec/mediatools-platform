@@ -1,0 +1,27 @@
+# ============================================================
+# Render.com Deployment Configuration
+# إعداد النشر على Render
+# ============================================================
+services:
+  - type: web
+    name: media-tools-api
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip &&
+      pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: ENABLE_REMBG
+        value: "true"
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: MAX_FILE_SIZE_MB
+        value: "10"
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
