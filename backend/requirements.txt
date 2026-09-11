@@ -22,5 +22,9 @@ onnxruntime==1.17.1
 python-dotenv==1.0.1
 psutil==5.9.8
 
+# Arabic Text Reshaping (للنصوص العربية في القوالب)
+arabic-reshaper==3.0.0
+python-bidi==0.4.2
+
 # Production Server (اختياري - بديل لـ uvicorn)
 gunicorn==21.2.0
