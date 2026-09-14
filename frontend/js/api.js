@@ -7,7 +7,7 @@
 const API_BASE_URL = window.API_BASE_URL || (
     window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:8000'
-        : 'https://mediatools-platform-1.onrender.com'
+        : 'https://api.mediatools.app'
 );
 
 const API_PREFIX = '/api/v1';

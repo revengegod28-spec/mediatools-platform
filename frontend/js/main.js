@@ -108,6 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // ✅ فحص أولي للسيرفر في الخلفية (لا يمنع تحميل الصفحة)
+    if (window.HealthManager) {
+        HealthManager.initialCheck();
+    }
+
     console.log('%c🚀 MediaTools Platform', 'font-size: 24px; font-weight: bold; color: #7c3aed;');
     console.log('%cصُنع بحب ❤️ للمحتوى العربي', 'font-size: 14px; color: #6b7280;');
 });
