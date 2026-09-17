@@ -402,7 +402,7 @@ const Tools = {
 
             const url = `${API_BASE_URL}${API_PREFIX}/template?template_id=${templateId}`;
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
 
             const response = await fetch(url, {
                 method: 'POST',
@@ -627,7 +627,7 @@ const Tools = {
 
             const url = `${API_BASE_URL}${API_PREFIX}/background/remove?method=${method}`;
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 120000);
+            const timeoutId = setTimeout(() => controller.abort(), 180000);
 
             const response = await fetch(url, {
                 method: 'POST',
