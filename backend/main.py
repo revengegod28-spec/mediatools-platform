@@ -20,6 +20,7 @@ from app.routers import (
     watermark,
     background,
     health,
+    enhance,
 )
 
 # ============================================================
@@ -122,6 +123,7 @@ app.include_router(resize.router, prefix=API_PREFIX, tags=["📐 تعديل ال
 app.include_router(template.router, prefix=API_PREFIX, tags=["📰 القوالب الإخبارية"])
 app.include_router(watermark.router, prefix=API_PREFIX, tags=["💧 العلامة المائية"])
 app.include_router(background.router, prefix=API_PREFIX, tags=["✂️ تفريغ الخلفيات"])
+app.include_router(enhance.router, prefix=API_PREFIX, tags=["🔍 تحسين جودة الصور"])
 
 
 # ============================================================

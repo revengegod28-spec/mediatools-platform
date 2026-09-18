@@ -439,6 +439,202 @@ const ClientTools = {
             blob,
             filename: 'watermarked.' + (outputFormat === 'image/png' ? 'png' : 'jpg')
         };
+    },
+
+
+    // ============================================
+    // 4. تحسين جودة الصور (Client-Side Canvas Filter)
+    // ============================================
+
+    /**
+     * Gaussian Blur على بيانات الصورة (لـ Unsharp Masking)
+     */
+    _gaussianBlur(imageData, radius) {
+        const data = imageData.data;
+        const w = imageData.width;
+        const h = imageData.height;
+        const out = new Uint8ClampedArray(data.length);
+
+        // إنشاء Gaussian Kernel
+        const ksize = Math.max(3, Math.ceil(radius * 3) | 1);
+        const sigma = radius;
+        const kernel = [];
+        let sum = 0;
+        const halfK = ksize >> 1;
+        for (let i = 0; i < ksize; i++) {
+            const x = i - halfK;
+            const v = Math.exp(-(x * x) / (2 * sigma * sigma));
+            kernel.push(v);
+            sum += v;
+        }
+        for (let i = 0; i < ksize; i++) kernel[i] /= sum;
+
+        // تمرير أفقي
+        const temp = new Uint8ClampedArray(data.length);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let k = -halfK; k <= halfK; k++) {
+                    const px = Math.min(w - 1, Math.max(0, x + k));
+                    const idx = (y * w + px) * 4;
+                    const wgt = kernel[k + halfK];
+                    r += data[idx] * wgt;
+                    g += data[idx + 1] * wgt;
+                    b += data[idx + 2] * wgt;
+                    a += data[idx + 3] * wgt;
+                }
+                const oi = (y * w + x) * 4;
+                temp[oi] = r;
+                temp[oi + 1] = g;
+                temp[oi + 2] = b;
+                temp[oi + 3] = a;
+            }
+        }
+        // تمرير عمودي
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                let r = 0, g = 0, b = 0, a = 0;
+                for (let k = -halfK; k <= halfK; k++) {
+                    const py = Math.min(h - 1, Math.max(0, y + k));
+                    const idx = (py * w + x) * 4;
+                    const wgt = kernel[k + halfK];
+                    r += temp[idx] * wgt;
+                    g += temp[idx + 1] * wgt;
+                    b += temp[idx + 2] * wgt;
+                    a += temp[idx + 3] * wgt;
+                }
+                const oi = (y * w + x) * 4;
+                out[oi] = r;
+                out[oi + 1] = g;
+                out[oi + 2] = b;
+                out[oi + 3] = a;
+            }
+        }
+        return new ImageData(out, w, h);
+    },
+
+    /**
+     * Unsharp Masking - زيادة حدة التفاصيل
+     * @param {ImageData} imageData - بيانات الصورة
+     * @param {number} amount - قوة التوضيح (0.5 - 3.0)
+     * @param {number} radius - نصف القطر (0.5 - 3.0)
+     */
+    _unsharpMask(imageData, amount = 1.5, radius = 1.0) {
+        const blurred = this._gaussianBlur(imageData, radius);
+        const src = imageData.data;
+        const blur = blurred.data;
+        const out = new Uint8ClampedArray(src.length);
+
+        for (let i = 0; i < src.length; i += 4) {
+            // المعادلة: sharpened = original + (original - blurred) * amount
+            out[i]     = Math.max(0, Math.min(255, src[i]     + (src[i]     - blur[i])     * amount));
+            out[i + 1] = Math.max(0, Math.min(255, src[i + 1] + (src[i + 1] - blur[i + 1]) * amount));
+            out[i + 2] = Math.max(0, Math.min(255, src[i + 2] + (src[i + 2] - blur[i + 2]) * amount));
+            out[i + 3] = src[i + 3]; // Alpha
+        }
+        return new ImageData(out, imageData.width, imageData.height);
+    },
+
+    /**
+     * Denoising بسيط عبر Median Filter (لتقليل الضوضاء مع الحفاظ على الحواف)
+     */
+    _denoise(imageData, strength = 2) {
+        const src = imageData.data;
+        const w = imageData.width;
+        const h = imageData.height;
+        const out = new Uint8ClampedArray(src.length);
+        const r = Math.min(2, Math.max(1, Math.round(strength)));
+
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const channels = [[], [], []];
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        const px = Math.min(w - 1, Math.max(0, x + dx));
+                        const py = Math.min(h - 1, Math.max(0, y + dy));
+                        const idx = (py * w + px) * 4;
+                        channels[0].push(src[idx]);
+                        channels[1].push(src[idx + 1]);
+                        channels[2].push(src[idx + 2]);
+                    }
+                }
+                const oi = (y * w + x) * 4;
+                for (let c = 0; c < 3; c++) {
+                    channels[c].sort((a, b) => a - b);
+                    out[oi + c] = channels[c][channels[c].length >> 1];
+                }
+                out[oi + 3] = src[oi + 3];
+            }
+        }
+        return new ImageData(out, w, h);
+    },
+
+    /**
+     * تحسين جودة الصورة بالكامل (Client-Side)
+     */
+    async enhanceImage(file, options = {}) {
+        const {
+            sharpenAmount = 1.5,   // قوة التوضيح (0.5 - 3.0)
+            sharpenRadius = 1.0,    // نصف القطر (0.5 - 3.0)
+            denoiseStrength = 0,    // 0 = بدون، 1-2 = خفيف، 3 = قوي
+            scale = 2,              // معامل التكبير (1, 2)
+            outputFormat = 'PNG',   // PNG أو JPEG
+            quality = 95            // للجودة عند JPEG
+        } = options;
+
+        const originalSize = file.size;
+        const img = await this.loadImage(file);
+
+        // 1. تطبيق التوضيح وإزالة الضوضاء على الصورة الأصلية
+        const workCanvas = document.createElement('canvas');
+        workCanvas.width = img.width;
+        workCanvas.height = img.height;
+        const workCtx = workCanvas.getContext('2d');
+        workCtx.drawImage(img, 0, 0);
+        let workData = workCtx.getImageData(0, 0, img.width, img.height);
+
+        // إزالة الضوضاء أولاً (إن لزم)
+        if (denoiseStrength > 0) {
+            workData = this._denoise(workData, denoiseStrength);
+        }
+
+        // تطبيق التوضيح
+        workData = this._unsharpMask(workData, sharpenAmount, sharpenRadius);
+
+        // وضع النتيجة على canvas
+        workCtx.putImageData(workData, 0, 0);
+
+        // 2. التكبير (إن لزم)
+        const finalCanvas = document.createElement('canvas');
+        const finalCtx = finalCanvas.getContext('2d');
+
+        if (scale > 1) {
+            finalCanvas.width = img.width * scale;
+            finalCanvas.height = img.height * scale;
+            finalCtx.imageSmoothingEnabled = true;
+            finalCtx.imageSmoothingQuality = 'high';
+            finalCtx.drawImage(workCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+        } else {
+            finalCanvas.width = img.width;
+            finalCanvas.height = img.height;
+            finalCtx.drawImage(workCanvas, 0, 0);
+        }
+
+        // 3. تصدير
+        const mimeType = outputFormat.toUpperCase() === 'JPEG' ? 'image/jpeg' : 'image/png';
+        const ext = outputFormat.toUpperCase() === 'JPEG' ? 'jpg' : 'png';
+        const blob = await this.canvasToBlob(finalCanvas, mimeType, quality / 100);
+
+        return {
+            blob,
+            filename: `enhanced_${scale}x.${ext}`,
+            stats: {
+                originalSize,
+                enhancedSize: blob.size,
+                originalDims: { width: img.width, height: img.height },
+                enhancedDims: { width: finalCanvas.width, height: finalCanvas.height }
+            }
+        };
     }
 };
 

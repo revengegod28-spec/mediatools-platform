@@ -222,6 +222,29 @@ class ApiClient {
     }
 
     /**
+     * تحسين جودة الصورة (Server-Side HD/Ultra)
+     */
+    async enhanceImage(file, options = {}) {
+        const {
+            mode = 'standard',
+            scale = 2
+        } = options;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const params = new URLSearchParams({
+            mode,
+            scale
+        });
+
+        return this.request(`/enhance?${params}`, {
+            method: 'POST',
+            body: formData
+        });
+    }
+
+    /**
      * جلب البيانات الوصفية
      */
     async getPlatforms() {
@@ -242,6 +265,10 @@ class ApiClient {
 
     async getBackgroundMethods() {
         return this.request('/background/methods');
+    }
+
+    async getEnhanceModes() {
+        return this.request('/enhance/modes');
     }
 
     /**

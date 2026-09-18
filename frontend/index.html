@@ -240,7 +240,41 @@
             <!-- Tools Grid (6 بطاقات) -->
             <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                <!-- Tool 1: Compress -->
+                <!-- Tool 1: Image Enhancer (NEW - الأكثر طلباً) -->
+                <div class="tool-card group cursor-pointer" data-tool="enhance">
+                    <div class="relative bg-white border-2 border-amber-200 rounded-3xl p-7 h-full overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+                        <!-- Gradient BG on Hover -->
+                        <div class="absolute -top-20 -right-20 w-48 h-48 bg-gradient-to-br from-amber-300 to-orange-400 rounded-full opacity-0 group-hover:opacity-20 blur-2xl transition-opacity duration-500"></div>
+
+                        <!-- Badge -->
+                        <div class="absolute top-4 left-4 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md animate-pulse">
+                            🔥 الأكثر طلباً
+                        </div>
+
+                        <div class="relative">
+                            <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl flex items-center justify-center text-3xl mb-5 shadow-lg shadow-amber-500/30 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300">
+                                ✨
+                            </div>
+                            <h3 class="text-xl font-black mb-3 text-gray-900 leading-tight">توضيح وزيادة دقة الصور (Enhancer)</h3>
+                            <p class="text-gray-600 mb-5 leading-relaxed text-sm">
+                                تحسين جودة الصور المشوشة، إزالة التغبيش، ورفع أبعادها بدقة عالية.
+                            </p>
+                            <div class="flex flex-wrap gap-2 mb-5">
+                                <span class="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded-full font-semibold">توضيح مجاني</span>
+                                <span class="text-xs bg-orange-50 text-orange-700 px-3 py-1 rounded-full font-semibold">HD Quality</span>
+                                <span class="text-xs bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full font-semibold">فوري</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-amber-600 font-bold text-sm group-hover:gap-3 transition-all">
+                                ابدأ الاستخدام
+                                <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tool 2: Compress -->
                 <div class="tool-card group cursor-pointer" data-tool="compress">
                     <div class="relative bg-white border border-gray-100 rounded-3xl p-7 h-full overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
                         <!-- Gradient BG on Hover -->
@@ -376,34 +410,6 @@
                                 <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
                                 </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tool 6: Upscale (Coming Soon) -->
-                <div class="tool-card group cursor-pointer opacity-90">
-                    <div class="relative bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-3xl p-7 h-full overflow-hidden">
-                        <!-- "Coming Soon" Badge -->
-                        <div class="absolute top-4 left-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
-                            قريباً
-                        </div>
-
-                        <div class="relative">
-                            <div class="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl flex items-center justify-center text-3xl mb-5 shadow-lg shadow-amber-500/30 grayscale opacity-80">
-                                🔍
-                            </div>
-                            <h3 class="text-xl font-black mb-3 text-gray-700 leading-tight">تحسين وزيادة دقة الصور (Upscale)</h3>
-                            <p class="text-gray-500 mb-5 leading-relaxed text-sm">
-                                توضيح الصور المشوشة ورفع دقتها باستخدام <span class="font-bold text-amber-600">الذكاء الاصطناعي</span> (قريباً).
-                            </p>
-                            <div class="flex flex-wrap gap-2 mb-5">
-                                <span class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-semibold">AI Upscale</span>
-                                <span class="text-xs bg-gray-200 text-gray-600 px-3 py-1 rounded-full font-semibold">2x / 4x</span>
-                            </div>
-                            <div class="flex items-center gap-2 text-gray-500 font-bold text-sm">
-                                <span class="animate-pulse">🔔</span>
-                                سنخطرك عند الإطلاق
                             </div>
                         </div>
                     </div>

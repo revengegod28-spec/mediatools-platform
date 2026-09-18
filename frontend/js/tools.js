@@ -11,7 +11,7 @@ const Tools = {
     /**
      * هل الأداة تُعالج client-side أم server-side؟
      */
-    CLIENT_SIDE_TOOLS: ['compress', 'resize', 'watermark'],
+    CLIENT_SIDE_TOOLS: ['compress', 'resize', 'watermark', 'enhance'],
     SERVER_SIDE_TOOLS: ['template', 'background'],
 
     isClientSide(toolId) {
@@ -73,6 +73,7 @@ const Tools = {
                 template: () => this.renderTemplateTool(formContainer),
                 watermark: () => this.renderWatermarkTool(formContainer),
                 background: () => this.renderBackgroundTool(formContainer),
+                enhance: () => this.renderEnhanceTool(formContainer),
             };
 
             await renderers[toolId]();
@@ -663,6 +664,261 @@ const Tools = {
         } finally {
             btn.disabled = false;
             btn.innerHTML = '✂️ أزل الخلفية';
+        }
+    },
+
+
+    /**
+     * Tool 6: Image Enhancer (Client-Side + Server-Side HD)
+     */
+    async renderEnhanceTool(container) {
+        container.innerHTML += `
+            <form id="enhanceForm" class="space-y-5">
+                <!-- رفع الصورة -->
+                <div>
+                    <label class="block text-sm font-bold mb-2">📁 اختر الصورة</label>
+                    <input type="file" id="enhanceFile" accept="image/*" required
+                           class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1">💡 JPG, PNG, WebP - حتى 10MB</p>
+                </div>
+
+                <!-- إعدادات سريعة -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold mb-2">
+                            🔍 قوة التوضيح: <span id="sharpenAmountValue">70</span>%
+                        </label>
+                        <input type="range" id="sharpenAmount" min="0" max="100" value="70"
+                               class="w-full accent-amber-600">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>خفيف</span>
+                            <span>قوي</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold mb-2">
+                            🧹 إزالة الضوضاء: <span id="denoiseStrengthValue">30</span>%
+                        </label>
+                        <input type="range" id="denoiseStrength" min="0" max="100" value="30"
+                               class="w-full accent-amber-600">
+                        <div class="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>بدون</span>
+                            <span>قوي</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- معامل التكبير -->
+                <div>
+                    <label class="block text-sm font-bold mb-2">📐 رفع الدقة</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="scale" value="1" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center peer-checked:border-amber-500 peer-checked:bg-amber-50 transition-all hover:border-amber-300">
+                                <div class="font-black">بدون</div>
+                                <div class="text-xs text-gray-500">نفس المقاس</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="scale" value="2" class="peer hidden" checked>
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center peer-checked:border-amber-500 peer-checked:bg-amber-50 transition-all hover:border-amber-300">
+                                <div class="font-black">2x</div>
+                                <div class="text-xs text-gray-500">مزدوج</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="scale" value="3" class="peer hidden">
+                            <div class="border-2 border-gray-200 rounded-xl p-3 text-center peer-checked:border-amber-500 peer-checked:bg-amber-50 transition-all hover:border-amber-300">
+                                <div class="font-black">3x</div>
+                                <div class="text-xs text-gray-500">ثلاثي</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- صيغة الإخراج -->
+                <div>
+                    <label class="block text-sm font-bold mb-2">💾 صيغة الإخراج</label>
+                    <select id="enhanceFormat" class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-amber-500 outline-none">
+                        <option value="PNG">PNG - أعلى جودة (موصى)</option>
+                        <option value="JPEG">JPG - حجم أصغر</option>
+                        <option value="WEBP">WebP - الأحدث والأفضل</option>
+                    </select>
+                </div>
+
+                <!-- زر المعالجة -->
+                <button type="submit" id="enhanceBtn"
+                        class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-amber-500/30">
+                    ✨ تحسين الجودة الآن
+                </button>
+
+                <!-- Before/After Slider -->
+                <div id="enhanceResult" class="hidden">
+                    <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-5">
+                        <h3 class="text-lg font-black mb-3 text-gray-800">📊 مقارنة قبل وبعد</h3>
+
+                        <!-- Slider Container -->
+                        <div id="compareSlider" class="relative w-full overflow-hidden rounded-xl border-2 border-gray-200 select-none" style="aspect-ratio: 16/10; background: #f3f4f6;">
+                            <!-- الصورة بعد (أسفل) -->
+                            <img id="afterImg" class="absolute inset-0 w-full h-full object-contain">
+                            <!-- الصورة قبل (فوق) -->
+                            <div id="beforeWrap" class="absolute inset-0 overflow-hidden" style="width: 50%;">
+                                <img id="beforeImg" class="absolute inset-0 w-full h-full object-contain" style="min-width: calc(100% * 2); max-width: none;">
+                            </div>
+                            <!-- الخط الفاصل -->
+                            <div id="sliderLine" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style="left: 50%;"></div>
+                            <!-- المقبض -->
+                            <div id="sliderHandle" class="absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-2xl flex items-center justify-center cursor-ew-resize" style="left: calc(50% - 20px);">
+                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                                </svg>
+                            </div>
+                            <!-- Labels -->
+                            <div class="absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded font-bold">الأصلية</div>
+                            <div class="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded font-bold">المحسنة ✨</div>
+                        </div>
+
+                        <!-- إحصائيات -->
+                        <div id="enhanceStats" class="grid grid-cols-2 gap-3 mt-4"></div>
+
+                        <!-- زر التنزيل -->
+                        <button type="button" id="downloadEnhanced"
+                                class="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 rounded-xl transition-all">
+                            💾 تنزيل الصورة المحسنة
+                        </button>
+                    </div>
+                </div>
+            </form>
+        `;
+
+        // معالج رفع الصورة - عرض معاينة
+        document.getElementById('enhanceFile').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                document.getElementById('beforeImg').src = ev.target.result;
+                document.getElementById('afterImg').src = ev.target.result;
+                // ضبط عرض beforeImg ليكون ضعف عرض الـ container
+                const slider = document.getElementById('compareSlider');
+                document.getElementById('beforeImg').style.width = (slider.offsetWidth * 2) + 'px';
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // تحديث قيم الـ sliders
+        document.getElementById('sharpenAmount').addEventListener('input', (e) => {
+            document.getElementById('sharpenAmountValue').textContent = e.target.value;
+        });
+        document.getElementById('denoiseStrength').addEventListener('input', (e) => {
+            document.getElementById('denoiseStrengthValue').textContent = e.target.value;
+        });
+
+        // Before/After Slider Drag
+        const slider = document.getElementById('compareSlider');
+        let isDragging = false;
+        const updateSlider = (x) => {
+            const rect = slider.getBoundingClientRect();
+            const xRel = Math.max(0, Math.min(rect.width, x - rect.left));
+            const pct = (xRel / rect.width) * 100;
+            document.getElementById('beforeWrap').style.width = pct + '%';
+            document.getElementById('sliderLine').style.left = pct + '%';
+            document.getElementById('sliderHandle').style.left = `calc(${pct}% - 20px)`;
+        };
+        slider.addEventListener('mousedown', (e) => { isDragging = true; updateSlider(e.clientX); });
+        document.addEventListener('mousemove', (e) => { if (isDragging) updateSlider(e.clientX); });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+        // Touch support
+        slider.addEventListener('touchstart', (e) => { isDragging = true; updateSlider(e.touches[0].clientX); });
+        document.addEventListener('touchmove', (e) => { if (isDragging) updateSlider(e.touches[0].clientX); });
+        document.addEventListener('touchend', () => { isDragging = false; });
+
+        // submit
+        document.getElementById('enhanceForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleEnhance();
+        });
+    },
+
+    async handleEnhance() {
+        const file = document.getElementById('enhanceFile').files[0];
+        const sharpenAmount = parseInt(document.getElementById('sharpenAmount').value) / 50; // 0-2
+        const denoisePct = parseInt(document.getElementById('denoiseStrength').value);
+        // map denoise: 0 -> 0 (no denoise), 1-50 -> 1 (light), 51-100 -> 2 (strong)
+        const denoiseStrength = denoisePct === 0 ? 0 : denoisePct <= 50 ? 1 : 2;
+        const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
+        const outputFormat = document.getElementById('enhanceFormat').value;
+        const resultDiv = document.getElementById('enhanceResult');
+        const btn = document.getElementById('enhanceBtn');
+
+        if (!file) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner mx-auto"></div>';
+        resultDiv.classList.add('hidden');
+
+        try {
+            // ✅ معالجة فورية في المتصفح
+            const result = await ClientTools.enhanceImage(file, {
+                sharpenAmount,
+                sharpenRadius: 1.0,
+                denoiseStrength,
+                scale,
+                outputFormat,
+                quality: 95
+            });
+
+            // عرض النتائج
+            const enhancedURL = URL.createObjectURL(result.blob);
+            document.getElementById('afterImg').src = enhancedURL;
+
+            // ضبط عرض beforeImg لضعف عرض الـ container للمقارنة
+            const slider = document.getElementById('compareSlider');
+            document.getElementById('beforeImg').style.width = (slider.offsetWidth * 2) + 'px';
+
+            // إحصائيات
+            const origDims = result.stats.originalDims;
+            const enhDims = result.stats.enhancedDims;
+            const sizeChange = ((result.stats.enhancedSize / result.stats.originalSize - 1) * 100).toFixed(0);
+            const sizeChangeText = sizeChange > 0 ? `+${sizeChange}%` : `${sizeChange}%`;
+
+            document.getElementById('enhanceStats').innerHTML = `
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">الأبعاد الجديدة</div>
+                    <div class="font-black text-amber-600">${enhDims.width}×${enhDims.height}</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">حجم الملف</div>
+                    <div class="font-black text-amber-600">${ClientTools.formatBytes(result.stats.enhancedSize)} <span class="text-xs text-gray-500">(${sizeChangeText})</span></div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">الأصلية</div>
+                    <div class="font-black text-gray-700">${origDims.width}×${origDims.height}</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">المعالجة</div>
+                    <div class="font-black text-green-600">${scale}x تكبير + شحذ</div>
+                </div>
+            `;
+
+            // زر التنزيل
+            document.getElementById('downloadEnhanced').onclick = () => {
+                ClientTools.downloadBlob(result.blob, result.filename);
+            };
+
+            resultDiv.classList.remove('hidden');
+            UI.showToast('🎉 تم تحسين الصورة بنجاح!', 'success');
+
+            // Scroll للنتيجة
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            resultDiv.innerHTML = `
+                <div class="bg-red-50 border-2 border-red-200 rounded-xl p-5 text-red-700">❌ ${error.message}</div>
+            `;
+            resultDiv.classList.remove('hidden');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '✨ تحسين الجودة الآن';
         }
     }
 };
