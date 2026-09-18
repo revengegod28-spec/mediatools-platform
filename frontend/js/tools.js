@@ -757,25 +757,23 @@ const Tools = {
                     <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-5">
                         <h3 class="text-lg font-black mb-3 text-gray-800">📊 مقارنة قبل وبعد</h3>
 
-                        <!-- Slider Container -->
-                        <div id="compareSlider" class="relative w-full overflow-hidden rounded-xl border-2 border-gray-200 select-none" style="aspect-ratio: 16/10; background: #f3f4f6;">
-                            <!-- الصورة بعد (أسفل) -->
-                            <img id="afterImg" class="absolute inset-0 w-full h-full object-contain">
-                            <!-- الصورة قبل (فوق) -->
-                            <div id="beforeWrap" class="absolute inset-0 overflow-hidden" style="width: 50%;">
-                                <img id="beforeImg" class="absolute inset-0 w-full h-full object-contain" style="min-width: calc(100% * 2); max-width: none;">
-                            </div>
+                        <!-- Slider Container (clip-path approach - بدون ghost image) -->
+                        <div id="compareSlider" class="relative w-full overflow-hidden rounded-xl border-2 border-gray-200 select-none" style="aspect-ratio: 16/10; background: #1f2937;">
+                            <!-- الخلفية: الصورة المحسنة (تملأ الحاوية بالكامل) -->
+                            <img id="afterImg" class="absolute inset-0 w-full h-full" style="object-fit: contain;">
+                            <!-- المقدمة: الصورة الأصلية مع clip-path ديناميكي -->
+                            <img id="beforeImg" class="absolute inset-0 w-full h-full transition-all" style="object-fit: contain; clip-path: inset(0 50% 0 0);">
                             <!-- الخط الفاصل -->
-                            <div id="sliderLine" class="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style="left: 50%;"></div>
+                            <div id="sliderLine" class="absolute top-0 bottom-0 w-1 bg-white shadow-2xl pointer-events-none" style="left: 50%;"></div>
                             <!-- المقبض -->
-                            <div id="sliderHandle" class="absolute top-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full shadow-2xl flex items-center justify-center cursor-ew-resize" style="left: calc(50% - 20px);">
-                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+                            <div id="sliderHandle" class="absolute top-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full shadow-2xl flex items-center justify-center cursor-ew-resize pointer-events-none z-10" style="left: calc(50% - 24px);">
+                                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M8 9l-4 3 4 3m8-6l4 3-4 3"/>
                                 </svg>
                             </div>
                             <!-- Labels -->
-                            <div class="absolute top-3 right-3 bg-black/70 text-white text-xs px-2 py-1 rounded font-bold">الأصلية</div>
-                            <div class="absolute top-3 left-3 bg-amber-500 text-white text-xs px-2 py-1 rounded font-bold">المحسنة ✨</div>
+                            <div class="absolute top-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-lg font-bold backdrop-blur-sm">الأصلية</div>
+                            <div class="absolute top-3 left-3 bg-amber-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold shadow-lg">المحسنة ✨</div>
                         </div>
 
                         <!-- إحصائيات -->
@@ -783,7 +781,7 @@ const Tools = {
 
                         <!-- زر التنزيل -->
                         <button type="button" id="downloadEnhanced"
-                                class="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 rounded-xl transition-all">
+                                class="w-full mt-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-3 rounded-xl transition-all shadow-lg shadow-amber-500/30">
                             💾 تنزيل الصورة المحسنة
                         </button>
                     </div>
@@ -799,9 +797,6 @@ const Tools = {
             reader.onload = (ev) => {
                 document.getElementById('beforeImg').src = ev.target.result;
                 document.getElementById('afterImg').src = ev.target.result;
-                // ضبط عرض beforeImg ليكون ضعف عرض الـ container
-                const slider = document.getElementById('compareSlider');
-                document.getElementById('beforeImg').style.width = (slider.offsetWidth * 2) + 'px';
             };
             reader.readAsDataURL(file);
         });
@@ -814,16 +809,21 @@ const Tools = {
             document.getElementById('denoiseStrengthValue').textContent = e.target.value;
         });
 
-        // Before/After Slider Drag
+        // Before/After Slider Drag (clip-path approach - بدون ghost image)
         const slider = document.getElementById('compareSlider');
+        const beforeImg = document.getElementById('beforeImg');
+        const sliderLine = document.getElementById('sliderLine');
+        const sliderHandle = document.getElementById('sliderHandle');
         let isDragging = false;
-        const updateSlider = (x) => {
+
+        const updateSlider = (clientX) => {
             const rect = slider.getBoundingClientRect();
-            const xRel = Math.max(0, Math.min(rect.width, x - rect.left));
+            const xRel = Math.max(0, Math.min(rect.width, clientX - rect.left));
             const pct = (xRel / rect.width) * 100;
-            document.getElementById('beforeWrap').style.width = pct + '%';
-            document.getElementById('sliderLine').style.left = pct + '%';
-            document.getElementById('sliderHandle').style.left = `calc(${pct}% - 20px)`;
+            // clip-path: inset(top right bottom left) - نقوم بإخفاء الجزء الأيمن عند التحريك لليمين
+            beforeImg.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+            sliderLine.style.left = pct + '%';
+            sliderHandle.style.left = `calc(${pct}% - 24px)`;
         };
         slider.addEventListener('mousedown', (e) => { isDragging = true; updateSlider(e.clientX); });
         document.addEventListener('mousemove', (e) => { if (isDragging) updateSlider(e.clientX); });
@@ -842,9 +842,9 @@ const Tools = {
 
     async handleEnhance() {
         const file = document.getElementById('enhanceFile').files[0];
-        const sharpenAmount = parseInt(document.getElementById('sharpenAmount').value) / 50; // 0-2
+        // sharpenAmount: slider 0-100 → 0.5-4.5 (مرئي بوضوح)
+        const sharpenAmount = 0.5 + (parseInt(document.getElementById('sharpenAmount').value) / 100) * 4.0;
         const denoisePct = parseInt(document.getElementById('denoiseStrength').value);
-        // map denoise: 0 -> 0 (no denoise), 1-50 -> 1 (light), 51-100 -> 2 (strong)
         const denoiseStrength = denoisePct === 0 ? 0 : denoisePct <= 50 ? 1 : 2;
         const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
         const outputFormat = document.getElementById('enhanceFormat').value;
@@ -862,6 +862,7 @@ const Tools = {
             const result = await ClientTools.enhanceImage(file, {
                 sharpenAmount,
                 sharpenRadius: 1.0,
+                laplacianStrength: 0.6,
                 denoiseStrength,
                 scale,
                 outputFormat,
@@ -870,17 +871,20 @@ const Tools = {
 
             // عرض النتائج
             const enhancedURL = URL.createObjectURL(result.blob);
-            document.getElementById('afterImg').src = enhancedURL;
+            const afterImg = document.getElementById('afterImg');
+            afterImg.src = enhancedURL;
 
-            // ضبط عرض beforeImg لضعف عرض الـ container للمقارنة
-            const slider = document.getElementById('compareSlider');
-            document.getElementById('beforeImg').style.width = (slider.offsetWidth * 2) + 'px';
+            // إعادة تعيين الـ slider على 50% للمقارنة
+            document.getElementById('beforeImg').style.clipPath = 'inset(0 50% 0 0)';
+            document.getElementById('sliderLine').style.left = '50%';
+            document.getElementById('sliderHandle').style.left = 'calc(50% - 24px)';
 
             // إحصائيات
             const origDims = result.stats.originalDims;
             const enhDims = result.stats.enhancedDims;
             const sizeChange = ((result.stats.enhancedSize / result.stats.originalSize - 1) * 100).toFixed(0);
             const sizeChangeText = sizeChange > 0 ? `+${sizeChange}%` : `${sizeChange}%`;
+            const upscaleStr = scale > 1 ? `${scale}x` : 'نفس المقاس';
 
             document.getElementById('enhanceStats').innerHTML = `
                 <div class="bg-white rounded-xl p-3 text-center">
@@ -897,7 +901,7 @@ const Tools = {
                 </div>
                 <div class="bg-white rounded-xl p-3 text-center">
                     <div class="text-xs text-gray-500">المعالجة</div>
-                    <div class="font-black text-green-600">${scale}x تكبير + شحذ</div>
+                    <div class="font-black text-green-600">${upscaleStr} + توضيح</div>
                 </div>
             `;
 

@@ -447,7 +447,7 @@ const ClientTools = {
     // ============================================
 
     /**
-     * Gaussian Blur على بيانات الصورة (لـ Unsharp Masking)
+     * Gaussian Blur على بيانات الصورة (لـ Unsharp Masking) - محسّن للسرعة
      */
     _gaussianBlur(imageData, radius) {
         const data = imageData.data;
@@ -456,8 +456,8 @@ const ClientTools = {
         const out = new Uint8ClampedArray(data.length);
 
         // إنشاء Gaussian Kernel
-        const ksize = Math.max(3, Math.ceil(radius * 3) | 1);
-        const sigma = radius;
+        const ksize = Math.max(3, Math.ceil(radius * 2) | 1);
+        const sigma = Math.max(0.3, radius);
         const kernel = [];
         let sum = 0;
         const halfK = ksize >> 1;
@@ -472,18 +472,19 @@ const ClientTools = {
         // تمرير أفقي
         const temp = new Uint8ClampedArray(data.length);
         for (let y = 0; y < h; y++) {
+            const rowStart = y * w * 4;
             for (let x = 0; x < w; x++) {
                 let r = 0, g = 0, b = 0, a = 0;
                 for (let k = -halfK; k <= halfK; k++) {
                     const px = Math.min(w - 1, Math.max(0, x + k));
-                    const idx = (y * w + px) * 4;
+                    const idx = rowStart + px * 4;
                     const wgt = kernel[k + halfK];
                     r += data[idx] * wgt;
                     g += data[idx + 1] * wgt;
                     b += data[idx + 2] * wgt;
                     a += data[idx + 3] * wgt;
                 }
-                const oi = (y * w + x) * 4;
+                const oi = rowStart + x * 4;
                 temp[oi] = r;
                 temp[oi + 1] = g;
                 temp[oi + 2] = b;
@@ -514,12 +515,12 @@ const ClientTools = {
     },
 
     /**
-     * Unsharp Masking - زيادة حدة التفاصيل
+     * Unsharp Masking قوي - زيادة حدة التفاصيل بشكل ملحوظ
      * @param {ImageData} imageData - بيانات الصورة
-     * @param {number} amount - قوة التوضيح (0.5 - 3.0)
+     * @param {number} amount - قوة التوضيح (1.0 - 5.0)
      * @param {number} radius - نصف القطر (0.5 - 3.0)
      */
-    _unsharpMask(imageData, amount = 1.5, radius = 1.0) {
+    _unsharpMask(imageData, amount = 2.5, radius = 1.0) {
         const blurred = this._gaussianBlur(imageData, radius);
         const src = imageData.data;
         const blur = blurred.data;
@@ -533,6 +534,48 @@ const ClientTools = {
             out[i + 3] = src[i + 3]; // Alpha
         }
         return new ImageData(out, imageData.width, imageData.height);
+    },
+
+    /**
+     * Laplacian Edge Enhancement - تعزيز الحواف بإضافة حدة إضافية
+     * @param {ImageData} imageData
+     * @param {number} strength - قوة التعزيز (0.3 - 1.5)
+     */
+    _laplacianEnhance(imageData, strength = 0.6) {
+        // Laplacian kernel:
+        //  0 -1  0
+        // -1  4 -1
+        //  0 -1  0
+        const src = imageData.data;
+        const w = imageData.width;
+        const h = imageData.height;
+        const out = new Uint8ClampedArray(src.length);
+
+        // حساب حدة الحافة
+        const edge = new Float32Array(w * h * 3);
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
+                const idx = (y * w + x) * 4;
+                for (let c = 0; c < 3; c++) {
+                    const center = src[idx + c];
+                    const up = src[(idx - w * 4) + c];
+                    const down = src[(idx + w * 4) + c];
+                    const left = src[idx - 4 + c];
+                    const right = src[idx + 4 + c];
+                    edge[idx / 4 * 3 + c] = 4 * center - up - down - left - right;
+                }
+            }
+        }
+
+        // إضافة الحدة المُحسّنة للصورة الأصلية
+        for (let i = 0; i < src.length; i += 4) {
+            const eIdx = (i / 4) * 3;
+            out[i]     = Math.max(0, Math.min(255, src[i]     + edge[eIdx]     * strength));
+            out[i + 1] = Math.max(0, Math.min(255, src[i + 1] + edge[eIdx + 1] * strength));
+            out[i + 2] = Math.max(0, Math.min(255, src[i + 2] + edge[eIdx + 2] * strength));
+            out[i + 3] = src[i + 3];
+        }
+        return new ImageData(out, w, h);
     },
 
     /**
@@ -570,14 +613,15 @@ const ClientTools = {
     },
 
     /**
-     * تحسين جودة الصورة بالكامل (Client-Side)
+     * تحسين جودة الصورة بالكامل (Client-Side) - مع نتائج واضحة ومرئية
      */
     async enhanceImage(file, options = {}) {
         const {
-            sharpenAmount = 1.5,   // قوة التوضيح (0.5 - 3.0)
+            sharpenAmount = 2.5,    // قوة Unsharp Masking (1.0 - 5.0)
             sharpenRadius = 1.0,    // نصف القطر (0.5 - 3.0)
-            denoiseStrength = 0,    // 0 = بدون، 1-2 = خفيف، 3 = قوي
-            scale = 2,              // معامل التكبير (1, 2)
+            laplacianStrength = 0.6,// قوة تعزيز الحواف (0.3 - 1.5)
+            denoiseStrength = 0,    // 0 = بدون، 1 = خفيف، 2 = متوسط
+            scale = 2,              // معامل التكبير (1, 2, 3)
             outputFormat = 'PNG',   // PNG أو JPEG
             quality = 95            // للجودة عند JPEG
         } = options;
@@ -598,13 +642,16 @@ const ClientTools = {
             workData = this._denoise(workData, denoiseStrength);
         }
 
-        // تطبيق التوضيح
+        // 1) Unsharp Masking - توضيح أساسي
         workData = this._unsharpMask(workData, sharpenAmount, sharpenRadius);
+
+        // 2) Laplacian Edge Enhancement - تعزيز الحواف لإبراز التفاصيل
+        workData = this._laplacianEnhance(workData, laplacianStrength);
 
         // وضع النتيجة على canvas
         workCtx.putImageData(workData, 0, 0);
 
-        // 2. التكبير (إن لزم)
+        // 2. التكبير (إن لزم) مع الحفاظ على الحدة
         const finalCanvas = document.createElement('canvas');
         const finalCtx = finalCanvas.getContext('2d');
 
@@ -613,7 +660,13 @@ const ClientTools = {
             finalCanvas.height = img.height * scale;
             finalCtx.imageSmoothingEnabled = true;
             finalCtx.imageSmoothingQuality = 'high';
+            // الرسم بمقاس أكبر مع smoothing عالي الجودة
             finalCtx.drawImage(workCanvas, 0, 0, finalCanvas.width, finalCanvas.height);
+
+            // تطبيق Unsharp Masking إضافي بعد التكبير لإبراز الحواف
+            const scaledData = finalCtx.getImageData(0, 0, finalCanvas.width, finalCanvas.height);
+            const sharpenedScaled = this._unsharpMask(scaledData, sharpenAmount * 0.5, sharpenRadius * 1.5);
+            finalCtx.putImageData(sharpenedScaled, 0, 0);
         } else {
             finalCanvas.width = img.width;
             finalCanvas.height = img.height;
@@ -627,7 +680,8 @@ const ClientTools = {
 
         return {
             blob,
-            filename: `enhanced_${scale}x.${ext}`,
+            filename: `enhanced_${scale}x_${Date.now()}.${ext}`,
+            originalImageUrl: img.src,  // للاحتفاظ برابط الصورة الأصلية
             stats: {
                 originalSize,
                 enhancedSize: blob.size,
