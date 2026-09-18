@@ -575,10 +575,11 @@ const Tools = {
                     <label class="block text-sm font-bold mb-2">🎯 طريقة التفريغ</label>
                     <select id="bgMethod"
                             class="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-brand-500 outline-none">
-                        <option value="auto">تلقائي (AI + بسيط)</option>
-                        <option value="simple">بسيطة (سريعة - بدون AI)</option>
+                        <option value="auto">تلقائي (AI مع u2netp)</option>
+                        <option value="ai">ذكاء اصطناعي فقط (أفضل جودة)</option>
+                        <option value="simple">بسيطة (OpenCV - سريعة)</option>
                     </select>
-                    <p class="text-xs text-gray-500 mt-1">💡 الوضع البسيط يعمل بشكل أفضل على الخطة المجانية</p>
+                    <p class="text-xs text-gray-500 mt-1">💡 AI يعطي أفضل نتيجة، البسيط أسرع للخلفيات الواضحة</p>
                 </div>
 
                 <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">

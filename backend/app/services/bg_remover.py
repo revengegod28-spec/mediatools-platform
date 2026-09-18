@@ -53,44 +53,60 @@ async def remove_background_simple(contents: bytes, threshold: int = 240) -> byt
         bgr = img_cv[:, :, :3]
     else:
         bgr = img_cv
-        # خوارزمية GrabCut لتحديد المقدمة (سريعة - 3 تكرارات فقط)
-        mask = np.zeros(bgr.shape[:2], np.uint8)
+        h, w = bgr.shape[:2]
+
+        # خوارزمية GrabCut مع bounding box واسع (لتجنب إزالة الأمامية)
+        mask = np.zeros((h, w), np.uint8)
         bgd_model = np.zeros((1, 65), np.float64)
         fgd_model = np.zeros((1, 65), np.float64)
-        h, w = bgr.shape[:2]
-        rect = (
-            max(2, w // 20),
-            max(2, h // 20),
-            w - max(4, w // 10),
-            h - max(4, h // 10),
-        )
+
+        # هامش 3% من كل جانب (أوسع من السابق لتجنب قطع الأمامية)
+        margin_x = int(w * 0.03)
+        margin_y = int(h * 0.03)
+        rect = (margin_x, margin_y, w - 2 * margin_x, h - 2 * margin_y)
+
         try:
-            # 3 تكرارات فقط (بدلاً من 5) للسرعة
-            cv2.grabCut(bgr, mask, rect, bgd_model, fgd_model, 3, cv2.GC_INIT_WITH_RECT)
-            mask = np.where((mask == 2) | (mask == 0), 0, 1).astype("uint8") * 255
+            # 5 تكرارات للحصول على نتيجة أدق
+            cv2.grabCut(bgr, mask, rect, bgd_model, fgd_model, 5, cv2.GC_INIT_WITH_RECT)
+            # تحويل القناع: 0/2 = خلفية، 1/3 = أمامية
+            mask = np.where((mask == 0) | (mask == 2), 0, 255).astype("uint8")
         except Exception:
             # fallback: threshold based
             gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
             _, mask = cv2.threshold(gray, threshold, 255, cv2.THRESH_BINARY)
+
+    # عمليات مورفولوجية لتحسين القناع
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+
+    # إغلاق: ملء الثقوب الصغيرة في الأمامية
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    # فتح: إزالة الضوضاء الصغيرة في الخلفية
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    # تنعيم الحواف
+    mask = cv2.GaussianBlur(mask, (5, 5), 0)
 
     # دمج القناع مع الصورة
     result = cv2.bitwise_and(bgr, bgr, mask=mask)
 
     # إعادة تكبير القناع للحجم الأصلي إذا تم التصغير
     if scale != 1.0:
-        mask = cv2.resize(mask, (int(bgr.shape[1] / scale), int(bgr.shape[0] / scale)),
-                          interpolation=cv2.INTER_LINEAR)
-        # إعادة تطبيق القناع على الصورة الأصلية
+        # إعادة قراءة الصورة الأصلية بالحجم الكامل
         original = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
         if len(original.shape) == 3 and original.shape[2] == 4:
             bgr_full = original[:, :, :3]
         else:
             bgr_full = original
-        result = cv2.bitwise_and(bgr_full, bgr_full, mask=mask)
-        bgr = bgr_full
-
-    # إضافة قناة ألفا
-    bgra = np.dstack([result, mask])
+        # تكبير القناع للحجم الأصلي
+        mask_full = cv2.resize(
+            mask,
+            (bgr_full.shape[1], bgr_full.shape[0]),
+            interpolation=cv2.INTER_LINEAR
+        )
+        # تطبيق القناع على الصورة الأصلية للحفاظ على الجودة
+        result = cv2.bitwise_and(bgr_full, bgr_full, mask=mask_full)
+        bgra = np.dstack([result, mask_full])
+    else:
+        bgra = np.dstack([result, mask])
 
     # حفظ كـ PNG مع شفافية
     is_success, buffer = cv2.imencode(".png", bgra)
@@ -102,19 +118,27 @@ async def remove_background_simple(contents: bytes, threshold: int = 240) -> byt
 
 async def remove_background_ai(contents: bytes) -> bytes:
     """
-    تفريغ الخلفية بالذكاء الاصطناعي (rembg)
+    تفريغ الخلفية بالذكاء الاصطناعي (rembg + u2netp)
 
     Args:
         contents: محتوى الصورة
+
+    Returns:
+        bytes: الصورة بشفافية
     """
     try:
-        from rembg import remove
-
-        result_bytes = remove(contents)
+        from rembg import remove, new_session
+        # استخدام أصغر نموذج (u2netp) لتوفير الذاكرة
+        session = new_session("u2netp")
+        result_bytes = remove(contents, session=session)
         return result_bytes
     except ImportError:
         raise RuntimeError(
-            "مكتبة rembg غير مثبتة. استخدم الطريقة البسيطة أو ثبّت rembg"
+            "مكتبة rembg غير مثبتة. استخدم الطريقة البسيطة بدلاً منها."
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"خطأ في معالجة AI: {str(e)}. حاول بطريقة بسيطة."
         )
 
 
@@ -130,8 +154,9 @@ async def remove_background_auto(contents: bytes) -> bytes:
     if settings.ENABLE_REMBG:
         try:
             return await remove_background_ai(contents)
-        except Exception:
-            # fallback إلى الطريقة البسيطة
+        except Exception as e:
+            # fallback إلى الطريقة البسيطة إذا فشل AI
+            print(f"[bg_remover] AI failed: {e}, falling back to simple")
             return await remove_background_simple(contents)
     else:
         return await remove_background_simple(contents)

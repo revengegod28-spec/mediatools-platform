@@ -18,7 +18,7 @@ services:
       - key: DEBUG
         value: false
       - key: ENABLE_REMBG
-        value: "false"
+        value: "true"
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: MAX_FILE_SIZE_MB

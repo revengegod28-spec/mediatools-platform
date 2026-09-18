@@ -14,11 +14,10 @@ pillow==10.2.0
 opencv-python-headless==4.9.0.80
 numpy==1.26.4
 
-# AI Background Removal (REMOVED for Render Free Tier - uses too much memory)
-# rembg requires 512MB+ RAM during pip install which exceeds Render free tier limits
-# Using OpenCV-based 'simple' method as default (works on all hosting platforms)
-# rembg==2.0.50
-# onnxruntime==1.17.1
+# AI Background Removal (Re-enabled with u2netp model - lightweight 4MB)
+# u2netp model uses minimal memory compared to default u2net
+rembg==2.0.50
+onnxruntime==1.17.1
 
 # Utilities
 python-dotenv==1.0.1
