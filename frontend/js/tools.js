@@ -674,6 +674,17 @@ const Tools = {
     async renderEnhanceTool(container) {
         container.innerHTML += `
             <form id="enhanceForm" class="space-y-5">
+                <!-- تنبيه تقني شفاف -->
+                <div class="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-sm">
+                    <div class="font-black text-amber-800 mb-2">⚙️ ماذا تفعل هذه الأداة فعلاً؟</div>
+                    <ul class="text-amber-900 space-y-1 text-xs leading-relaxed">
+                        <li>✅ <strong>تكبير:</strong> 2x/3x مع الحفاظ على الجودة (Lanczos)</li>
+                        <li>✅ <strong>توضيح:</strong> Unsharp Mask + Laplacian Edge Enhancement</li>
+                        <li>✅ <strong>إزالة ضوضاء:</strong> Median Filter اختياري</li>
+                        <li>⚠️ <strong>حدود:</strong> لا تضيف تفاصيل جديدة. للصور pixelated، جرّب النسخة Server-Side HD</li>
+                    </ul>
+                </div>
+
                 <!-- رفع الصورة -->
                 <div>
                     <label class="block text-sm font-bold mb-2">📁 اختر الصورة</label>
@@ -746,11 +757,20 @@ const Tools = {
                     </select>
                 </div>
 
-                <!-- زر المعالجة -->
-                <button type="submit" id="enhanceBtn"
-                        class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-amber-500/30">
-                    ✨ تحسين الجودة الآن
-                </button>
+                <!-- أزرار المعالجة (نوعان) -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button type="submit" id="enhanceBtn"
+                            class="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-amber-500/30">
+                        ⚡ سريع (في المتصفح)
+                    </button>
+                    <button type="button" id="enhanceHDBtn"
+                            class="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-black py-4 rounded-xl transition-all shadow-lg shadow-purple-500/30">
+                        🌟 HD (على السيرفر)
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 text-center -mt-3">
+                    ⚡ فوري بدون رفع • 🌟 10-30 ثانية لكن جودة أعلى مع Lanczos + CLAHE
+                </p>
 
                 <!-- Before/After Slider -->
                 <div id="enhanceResult" class="hidden">
@@ -833,10 +853,16 @@ const Tools = {
         document.addEventListener('touchmove', (e) => { if (isDragging) updateSlider(e.touches[0].clientX); });
         document.addEventListener('touchend', () => { isDragging = false; });
 
-        // submit
+        // submit (Client-Side)
         document.getElementById('enhanceForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.handleEnhance();
+        });
+
+        // زر HD (Server-Side)
+        document.getElementById('enhanceHDBtn').addEventListener('click', async (e) => {
+            e.preventDefault();
+            await this.handleEnhanceHD();
         });
     },
 
@@ -922,7 +948,96 @@ const Tools = {
             resultDiv.classList.remove('hidden');
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '✨ تحسين الجودة الآن';
+            btn.innerHTML = '⚡ سريع (في المتصفح)';
+        }
+    },
+
+    /**
+     * HD Enhancement (Server-Side) - Lanczos + CLAHE + Unsharp
+     */
+    async handleEnhanceHD() {
+        const file = document.getElementById('enhanceFile').files[0];
+        const scale = parseInt(document.querySelector('input[name="scale"]:checked').value);
+        const resultDiv = document.getElementById('enhanceResult');
+        const btn = document.getElementById('enhanceHDBtn');
+
+        if (!file) {
+            UI.showToast('⚠️ اختر صورة أولاً', 'warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<div class="spinner mx-auto"></div>';
+        resultDiv.classList.add('hidden');
+
+        // عرض شاشة الانتظار
+        this.showServerLoading('جاري معالجة الصورة على السيرفر...');
+
+        try {
+            // ✅ معالجة على السيرفر بأعلى جودة
+            const mode = scale >= 3 ? 'hd' : 'standard';
+            const response = await apiClient.enhanceImage(file, {
+                mode,
+                scale
+            });
+
+            // معالجة الرد (blob)
+            const blob = response.blob;
+            const enhancedURL = URL.createObjectURL(blob);
+            document.getElementById('afterImg').src = enhancedURL;
+            document.getElementById('beforeImg').style.clipPath = 'inset(0 50% 0 0)';
+            document.getElementById('sliderLine').style.left = '50%';
+            document.getElementById('sliderHandle').style.left = 'calc(50% - 24px)';
+
+            // إحصائيات من السيرفر
+            const newWidth = response.headers['X-Width'] || '?';
+            const newHeight = response.headers['X-Height'] || '?';
+            const origSize = file.size;
+            const newSize = response.headers['X-Output-Size'] || blob.size;
+            const sizeChange = ((newSize / origSize - 1) * 100).toFixed(0);
+            const sizeChangeText = sizeChange > 0 ? `+${sizeChange}%` : `${sizeChange}%`;
+
+            // تحميل الصورة الأصلية لعرض الأبعاد
+            const origImg = await ClientTools.loadImage(file);
+
+            document.getElementById('enhanceStats').innerHTML = `
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">الأبعاد الجديدة</div>
+                    <div class="font-black text-purple-600">${newWidth}×${newHeight}</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">حجم الملف</div>
+                    <div class="font-black text-purple-600">${ClientTools.formatBytes(newSize)} <span class="text-xs text-gray-500">(${sizeChangeText})</span></div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">الأصلية</div>
+                    <div class="font-black text-gray-700">${origImg.width}×${origImg.height}</div>
+                </div>
+                <div class="bg-white rounded-xl p-3 text-center">
+                    <div class="text-xs text-gray-500">المعالجة</div>
+                    <div class="font-black text-green-600">${mode.toUpperCase()} (سيرفر)</div>
+                </div>
+            `;
+
+            // زر التنزيل
+            document.getElementById('downloadEnhanced').onclick = () => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `enhanced_HD_${Date.now()}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            resultDiv.classList.remove('hidden');
+            UI.showToast('🌟 تم التحسين بجودة HD على السيرفر!', 'success');
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+            UI.showToast('❌ ' + error.message, 'error');
+        } finally {
+            this.hideServerLoading();
+            btn.disabled = false;
+            btn.innerHTML = '🌟 HD (على السيرفر)';
         }
     }
 };
